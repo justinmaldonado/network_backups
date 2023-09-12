@@ -1,0 +1,45 @@
+---
+
+- hosts: network_devices
+  gather_facts: no
+##################################################################################  
+  tasks:
+##################################################################################
+    - name: Fetch Running Configuration
+      ios_command:
+        commands:
+          - show running-config
+      register: config
+      
+##################################################################################
+    - name: Define Backup Directory Path
+      set_fact:
+        backup_dir: "/tmp/{{ playbook_dir | basename }}/{{ ansible_network_os }}/{{ ansible_hostname }}"
+        
+    - name: Create Backup Directory If It Doesn't Exist
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        recurse: yes
+
+    - name: Save Running Configuration Locally
+      copy:
+        content: "{{ config.stdout[0] }}"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}.cfg"
+        
+  ##################################################################################
+    - name: Git Add
+      git:
+        repo: "/tmp/{{ playbook_dir | basename }}"
+        add: "*"
+
+    - name: Git Commit
+      git:
+        repo: "/tmp/{{ playbook_dir | basename }}"
+        msg: "Backed up {{ ansible_hostname }}"
+        commit: yes
+
+    - name: Git Push
+      git:
+        repo: "/tmp/{{ playbook_dir | basename }}"
+        push: yes
